@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Align</title>
+    <!-- Fallback font if SF Pro is not installed entirely -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="logo">Align</div>
+        <div class="nav-links">
+            <a href="#hero">Home</a>
+            <a href="#tracker">Tracker</a>
+            <a href="#" id="export-csv" title="Download a Backup of your tasks">Export CSV</a>
+            <button id="notes-toggle" class="focus-btn ambient-btn" title="Open Quick Notes">Brain Dump</button>
+            <button id="focus-toggle" class="focus-btn">Deep Focus Mode</button>
+        </div>
+    </nav>
+
+    <!-- Slide-out Quick Notes Panel -->
+    <div id="notes-panel" class="side-panel">
+        <div class="panel-header">
+            <h3>Brain Dump</h3>
+            <button id="close-notes" class="close-btn">&times;</button>
+        </div>
+        <div class="panel-content">
+            <p class="panel-desc">Dump distracting thoughts here to keep your main list focused.</p>
+            <textarea id="quick-notes-input" placeholder="What's on your mind...?" spellcheck="false"></textarea>
+        </div>
+    </div>
+
+    <!-- Deep Focus Overlay -->
+    <div id="focus-overlay" class="focus-overlay">
+        <button id="exit-focus" class="exit-btn">&times;</button>
+        <div class="timer-container">
+            <svg class="progress-ring" viewBox="0 0 120 120">
+                <circle class="progress-ring__circle-bg" cx="60" cy="60" r="54"></circle>
+                <circle class="progress-ring__circle" cx="60" cy="60" r="54"></circle>
+            </svg>
+            <div class="time-display" id="time-display">25:00</div>
+        </div>
+        <div class="focus-controls">
+            <button id="start-timer" class="timer-btn primary">Start</button>
+            <button id="reset-timer" class="timer-btn secondary">Reset</button>
+        </div>
+        <div class="focus-task-row">
+            <h3 id="current-focus-task" class="focus-task-label clickable-task" title="Click to pick a task">Select a
+                task to focus on...</h3>
+            <button id="clear-focus-task" class="clear-task-btn" title="Clear focus task"
+                style="display:none;">Clear</button>
+        </div>
+        <!-- Task picker popover -->
+        <div id="task-picker" class="task-picker">
+            <p class="task-picker-hint">Pick a task to focus on</p>
+            <ul id="task-picker-list"></ul>
+        </div>
+    </div>
+
+    <section id="hero" class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">Master Your Day</h1>
+            <p class="hero-subtitle">Premium task management designed for absolute focus and intuitive control.</p>
+
+            <div class="utility-row">
+                <!-- Priority Target Widget -->
+                <div class="utility-card priority-card" onclick="startFocusOnPriority()" style="cursor: pointer;"
+                    title="Click to enter Focus Mode">
+                    <div class="card-icon" style="color: var(--accent); background: rgba(108, 92, 231, 0.1);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                    </div>
+                    <div class="card-data">
+                        <span id="priority-target" class="primary-data"
+                            style="font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">All
+                            Done</span>
+                        <span class="secondary-data">Top Priority (Click to Focus)</span>
+                    </div>
+                </div>
+
+                <!-- Deep Focus Today Widget -->
+                <div class="utility-card flow-card">
+                    <div class="card-icon" style="color: var(--accent); background: rgba(108, 92, 231, 0.1);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <div class="card-data">
+                        <span id="focus-time-data" class="primary-data">0m</span>
+                        <span class="secondary-data">Deep Flow Today</span>
+                    </div>
+                </div>
+
+                <!-- Consistency Streak Widget -->
+                <div class="utility-card streak-card">
+                    <div class="card-icon" style="color: var(--accent); background: rgba(108, 92, 231, 0.1);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="card-data">
+                        <span id="streak-data" class="primary-data">0 Days</span>
+                        <span class="secondary-data">Consistency Streak</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <span>Scroll</span>
+            <div class="line"></div>
+        </div>
+    </section>
+
+    <section id="tracker" class="tracker-section">
+        <div class="tracker-container fade-in">
+            <!-- Glow background layer populated by JS -->
+            <div class="tracker-glow" id="tracker-glow"></div>
+
+            <div class="sticky-header">
+                <h2>Your Tasks</h2>
+                <form id="todo-form">
+                    <div class="input-group">
+                        <input type="text" id="todo-input" placeholder="What needs to be done today?" autocomplete="off"
+                            required>
+                        <select id="todo-category" class="category-select">
+                            <option value="Work">Work</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Learning">Learning</option>
+                        </select>
+                        <select id="todo-priority" class="category-select priority-select">
+                            <option value="None">— Priority</option>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                        <button type="submit" class="add-btn magnetic-btn" aria-label="Add Task">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="stats-bar">
+                    <div class="filters">
+                        <button class="filter-btn active" data-filter="All">All</button>
+                        <button class="filter-btn" data-filter="Work">Work</button>
+                        <button class="filter-btn" data-filter="Personal">Personal</button>
+                        <button class="filter-btn" data-filter="Learning">Learning</button>
+                    </div>
+                </div>
+
+                <div class="global-actions">
+                    <div class="actions">
+                        <span id="task-count">0 tasks</span>
+                        <button id="clear-completed" class="action-btn">Clear completed</button>
+                    </div>
+                </div>
+
+                <div class="completion-bar-container">
+                    <div class="completion-bar" id="completion-bar"></div>
+                </div>
+            </div>
+
+            <div id="empty-state" class="empty-state">
+                <div class="empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6;">
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+                        <path d="m9 12 2 2 4-4"></path>
+                    </svg>
+                </div>
+                <h3>You're all set!</h3>
+                <p>Add a task above to start organizing your day.</p>
+            </div>
+
+            <ul id="todo-list">
+                <!-- Tasks will be injected here via JS -->
+            </ul>
+        </div>
+    </section>
+
+    <!-- Canvas for confetti -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

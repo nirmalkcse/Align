@@ -474,9 +474,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (todoIndex > -1) {
             const currentCat = todos[todoIndex].category || 'Personal';
             const nextIndex = (categories.indexOf(currentCat) + 1) % categories.length;
-            todos[todoIndex].category = categories[nextIndex];
+            const newCat = categories[nextIndex];
+            todos[todoIndex].category = newCat;
             saveTodos();
-            renderTodos();
+
+            const li = document.querySelector(`.todo-item[data-id="${id}"]`);
+            if (li) {
+                // If we are filtering and it no longer matches, animate it out
+                if (currentFilter !== 'All' && currentFilter !== newCat) {
+                    li.style.animationDelay = '0s';
+                    li.classList.add('removing');
+                    setTimeout(() => renderTodos(), 400);
+                } else {
+                    li.dataset.category = newCat;
+                    const catPill = li.querySelector('.category-pill');
+                    if (catPill) catPill.textContent = newCat;
+                }
+            } else {
+                renderTodos();
+            }
         }
     };
 
@@ -486,9 +502,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (todoIndex > -1) {
             const current = todos[todoIndex].priority || 'None';
             const nextIndex = (priorities.indexOf(current) + 1) % priorities.length;
-            todos[todoIndex].priority = priorities[nextIndex];
+            const newPri = priorities[nextIndex];
+            todos[todoIndex].priority = newPri;
             saveTodos();
-            renderTodos();
+
+            const li = document.querySelector(`.todo-item[data-id="${id}"]`);
+            if (li) {
+                const badge = li.querySelector('.priority-badge');
+                if (badge) {
+                    badge.className = `priority-badge priority-${newPri.toLowerCase()}`;
+                    badge.textContent = newPri === 'None' ? '+ Priority' : newPri;
+                }
+            } else {
+                renderTodos();
+            }
         }
     };
 
@@ -540,23 +567,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    exportCsvBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (todos.length === 0) return alert("No tasks to export!");
-        let csvContent = "data:text/csv;charset=utf-8,ID,Task,Category,Status,Created At\n";
-        todos.forEach(todo => {
-            const safeText = todo.text.replace(/"/g, '""');
-            const status = todo.completed ? "Completed" : "Pending";
-            csvContent += `"${todo.id}","${safeText}","${todo.category || 'Personal'}","${status}","${todo.createdAt}"\n`;
+    const exportCsvLink = document.getElementById('export-csv');
+    if (exportCsvLink) {
+        exportCsvLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (todos.length === 0) return alert("No tasks to export!");
+
+            let csvContent = "data:text/csv;charset=utf-8,ID,Task,Category,Status,Created At\n";
+            todos.forEach(todo => {
+                const safeText = todo.text.replace(/"/g, '""');
+                const status = todo.completed ? "Completed" : "Pending";
+                csvContent += `"${todo.id}","${safeText}","${todo.category || 'Personal'}","${status}","${todo.createdAt}"\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Your-Align-Tasks.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "aesthetic_tasks.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    });
+    }
+
+    const exportXlsxLink = document.getElementById('export-xlsx');
+    if (exportXlsxLink) {
+        exportXlsxLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (todos.length === 0) return alert("No tasks to export!");
+
+            // Use SheetJS (XLSX) if available
+            if (typeof XLSX !== 'undefined') {
+                const data = [
+                    ["ID", "Task", "Category", "Status", "Created At"] // Header row
+                ];
+
+                todos.forEach(todo => {
+                    const status = todo.completed ? "Completed" : "Pending";
+                    data.push([
+                        todo.id,
+                        todo.text,
+                        todo.category || 'Personal',
+                        status,
+                        todo.createdAt
+                    ]);
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                ws['!cols'] = [{ wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 25 }]; // Optional: set column widths
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Tasks");
+                XLSX.writeFile(wb, "Your-Align-Tasks.xlsx");
+            } else {
+                alert("XLSX Export is initializing, please try again in a moment.");
+            }
+        });
+    }
 
     // ---- Minimal Confetti System ----
     const canvas = document.getElementById('confetti-canvas');

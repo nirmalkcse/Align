@@ -18,7 +18,13 @@
         <div class="nav-links">
             <a href="#hero">Home</a>
             <a href="#tracker">Tracker</a>
-            <a href="#" id="export-csv" title="Download a Backup of your tasks">Export CSV</a>
+            <div class="export-dropdown">
+                <a href="#" id="export-btn-main" title="Download a Backup of your tasks">Export Tasks ▾</a>
+                <div class="export-menu">
+                    <a href="#" id="export-csv">As CSV</a>
+                    <a href="#" id="export-xlsx">As XLSX</a>
+                </div>
+            </div>
             <button id="notes-toggle" class="focus-btn ambient-btn" title="Open Quick Notes">Brain Dump</button>
             <button id="focus-toggle" class="focus-btn">Deep Focus Mode</button>
         </div>
@@ -263,6 +269,8 @@
     <!-- Canvas for confetti -->
     <canvas id="confetti-canvas"></canvas>
 
+    <!-- SheetJS for True XLSX Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="script.js"></script>
 </body>
 

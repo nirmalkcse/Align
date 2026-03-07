@@ -104,6 +104,51 @@ select {
     background: var(--glass-bg);
 }
 
+/* Export Dropdown Styling */
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.export-menu {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(20, 20, 25, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    z-index: 100;
+    backdrop-filter: blur(20px);
+}
+
+.export-dropdown:hover .export-menu {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+
+.export-menu a {
+    margin-left: 0 !important;
+    text-align: center;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+.export-menu a:hover {
+    background: rgba(94, 106, 210, 0.2);
+    color: #fff;
+}
+
 .focus-btn {
     background: rgba(94, 106, 210, 0.15);
     color: var(--accent);

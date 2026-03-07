@@ -1431,3 +1431,132 @@ select {
     background: rgba(225, 112, 85, 0.1);
     border: 1px solid rgba(225, 112, 85, 0.2);
 }
+
+/* === Daily Essentials Habits Widget === */
+.hero-habits-container {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    animation: fadeUpStagger 1s 0.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+@keyframes fadeUpStagger {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.habits-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.habits-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.habit-pill {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    color: var(--text-secondary);
+    user-select: none;
+    overflow: hidden;
+}
+
+.habit-checkbox {
+    display: none;
+}
+
+.habit-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s;
+}
+
+.habit-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    z-index: 2;
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+}
+
+.habit-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 1;
+    border-radius: inherit;
+}
+
+/* Hover effects */
+.habit-pill:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+/* Specific Background Gradients on Hover */
+.habit-pill#prod-deepwork-btn:hover .habit-bg {
+    background: linear-gradient(135deg, rgba(85, 239, 196, 0.2), rgba(0, 184, 148, 0.2));
+    opacity: 1;
+}
+
+.habit-pill#prod-deepwork-btn:hover .habit-icon {
+    color: #55efc4;
+    filter: drop-shadow(0 0 8px rgba(85, 239, 196, 0.6));
+}
+
+.habit-pill#prod-break-btn:hover .habit-bg {
+    background: linear-gradient(135deg, rgba(253, 203, 110, 0.2), rgba(225, 112, 85, 0.2));
+    opacity: 1;
+}
+
+.habit-pill#prod-break-btn:hover .habit-icon {
+    color: #fdcb6e;
+    filter: drop-shadow(0 0 8px rgba(253, 203, 110, 0.6));
+}
+
+.habit-pill#prod-urgent-btn:hover .habit-bg {
+    background: linear-gradient(135deg, rgba(162, 155, 254, 0.2), rgba(108, 92, 231, 0.2));
+    opacity: 1;
+}
+
+.habit-pill#prod-urgent-btn:hover .habit-icon {
+    color: #a29bfe;
+    filter: drop-shadow(0 0 8px rgba(162, 155, 254, 0.6));
+}
+
+.habit-pill#prod-random-btn:hover .habit-bg {
+    background: linear-gradient(135deg, rgba(232, 67, 147, 0.25), rgba(108, 92, 231, 0.25));
+    opacity: 1;
+}
+
+.habit-pill#prod-random-btn:hover .habit-icon {
+    color: #e84393;
+    filter: drop-shadow(0 0 8px rgba(232, 67, 147, 0.6));
+}

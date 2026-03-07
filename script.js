@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function playSound(type) {
         if (!sfxEnabled || audioContext.state === 'suspended') return;
 
+        // User requested: Remove sound from all elements except the Pomodoro timer
+        if (type !== 'tick' && type !== 'bell') return;
+
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         oscillator.connect(gainNode);
@@ -14,56 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const now = audioContext.currentTime;
 
-        if (type === 'click') {
-            // "Thocky" pleasing double-sine pop (like thick bubble wrap or premium keycaps)
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(600, now);
-            oscillator.frequency.exponentialRampToValueAtTime(120, now + 0.04);
-
-            const osc2 = audioContext.createOscillator();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(300, now);
-            osc2.frequency.exponentialRampToValueAtTime(80, now + 0.04);
-            osc2.connect(gainNode);
-
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.4, now + 0.005);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-
-            oscillator.start(now);
-            osc2.start(now);
-            oscillator.stop(now + 0.06);
-            osc2.stop(now + 0.06);
-        } else if (type === 'check') {
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(600, now);
-            oscillator.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-            oscillator.start(now);
-            oscillator.stop(now + 0.2);
-        } else if (type === 'uncheck') {
-            oscillator.type = 'triangle';
-            oscillator.frequency.setValueAtTime(300, now);
-            oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-            oscillator.start(now);
-            oscillator.stop(now + 0.16);
-        } else if (type === 'heavy-click') {
-            // Softer, rounder click (less harsh mechanical)
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(300, now);
-            oscillator.frequency.exponentialRampToValueAtTime(50, now + 0.05);
-
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.2, now + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-            oscillator.start(now);
-            oscillator.stop(now + 0.1);
-        } else if (type === 'tick') {
+        if (type === 'tick') {
             // Very soft, muted droplet tick
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(600, now);
@@ -855,6 +809,79 @@ document.addEventListener('DOMContentLoaded', () => {
         let div = document.createElement('div');
         div.innerText = str;
         return div.innerHTML;
+    }
+
+    // ---- Daily Essentials Habit Tracker ----
+    // ---- Productivity Hub Utilities ----
+
+    // 1. Deep Work State (120m)
+    const deepworkBtn = document.getElementById('prod-deepwork-btn');
+    if (deepworkBtn) {
+        deepworkBtn.addEventListener('click', () => {
+            setFocusTask("Deep Work Session");
+            timeRemaining = 120 * 60; // 120 minutes
+            updateTimerUI();
+        });
+    }
+
+    // 2. Take a Break (15m)
+    const breakBtn = document.getElementById('prod-break-btn');
+    if (breakBtn) {
+        breakBtn.addEventListener('click', () => {
+            setFocusTask("Recovery Break");
+            timeRemaining = 15 * 60; // 15 minutes
+            updateTimerUI();
+        });
+    }
+
+    // 3. Urgent Focus Filter
+    const urgentBtn = document.getElementById('prod-urgent-btn');
+    if (urgentBtn) {
+        urgentBtn.addEventListener('click', () => {
+            // Scroll to tracker
+            document.getElementById('tracker').scrollIntoView({ behavior: 'smooth' });
+
+            // Highlight High Priority tasks
+            const taskItems = document.querySelectorAll('.todo-item');
+            let found = false;
+            taskItems.forEach(item => {
+                const badge = item.querySelector('.priority-badge');
+                if (badge && badge.textContent === 'High') {
+                    found = true;
+                    item.style.transform = 'scale(1.02)';
+                    item.style.boxShadow = '0 0 15px rgba(225, 112, 85, 0.4)';
+                    setTimeout(() => {
+                        item.style.transform = '';
+                        item.style.boxShadow = '';
+                    }, 1500);
+                }
+            });
+            if (!found) {
+                // Flash the input to encourage adding one
+                const input = document.getElementById('todo-input');
+                input.placeholder = "No High priority tasks! Add one?";
+                setTimeout(() => input.placeholder = "What needs to be done today?", 2000);
+            }
+        });
+    }
+
+    // 4. Surprise Me (Random Focus Task)
+    const randomBtn = document.getElementById('prod-random-btn');
+    if (randomBtn) {
+        randomBtn.addEventListener('click', () => {
+            const incompleteTasks = todos.filter(t => !t.completed);
+            if (incompleteTasks.length === 0) {
+                alert("You don't have any incomplete tasks! You're all caught up.");
+                return;
+            }
+            // Pick a random task
+            const randomTask = incompleteTasks[Math.floor(Math.random() * incompleteTasks.length)];
+
+            // Set it as focus and start timer
+            setFocusTask(randomTask.text);
+            timeRemaining = 25 * 60; // Standard 25m Pomodoro
+            updateTimerUI();
+        });
     }
 
     // Initial render

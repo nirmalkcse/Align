@@ -1,4 +1,14 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+
+    // ---- Supabase Auth Init ----
+    if (window.AlignAuth) {
+        AlignAuth.initSupabase();
+        // Check if there's an existing session
+        const profile = await AlignAuth.loadCurrentProfile();
+        if (profile) {
+            onSignIn(profile);
+        }
+    }
 
     // ---- Audio Engine (Tactile UI Sounds) ----
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -326,9 +336,19 @@ document.addEventListener('DOMContentLoaded', () => {
         },
     });
 
-    function saveTodos() {
+    function saveTodos(taskToSync = null) {
         localStorage.setItem('aesthetic_todos_v2', JSON.stringify(todos));
         updateStats();
+        // Cloud sync
+        if (window.AlignAuth && AlignAuth.isLoggedIn()) {
+            if (taskToSync) {
+                AlignAuth.syncTaskToCloud(taskToSync);
+            } else {
+                // Sync all (used on reorder/clear)
+                todos.forEach(t => AlignAuth.syncTaskToCloud(t));
+            }
+            AlignAuth.syncDailyStats();
+        }
     }
 
     function formatDate(isoString) {
@@ -429,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('.filter-btn[data-filter="All"]').classList.add('active');
             }
 
-            saveTodos();
+            saveTodos(newTodo);
             renderTodos();
             todoInput.value = '';
             if (prioritySelect) prioritySelect.value = 'None';
@@ -445,7 +465,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (todo) {
             const wasCompleted = todo.completed;
             todo.completed = !todo.completed;
-            saveTodos();
+            if (todo.completed && !wasCompleted) todo.completedAt = new Date().toISOString();
+            if (!todo.completed) todo.completedAt = null;
+            saveTodos(todo);
 
             if (todo.completed) {
                 recordCompletion();
@@ -522,6 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteTodo = function (id) {
         const itemIndex = todos.findIndex(t => t.id === id);
         if (itemIndex > -1) {
+            if (window.AlignAuth && AlignAuth.isLoggedIn()) AlignAuth.deleteTaskFromCloud(id);
             const li = document.querySelector(`.todo-item[data-id="${id}"]`);
             if (li) {
                 li.classList.add('removing');
@@ -952,4 +975,500 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial render
     renderTodos();
     updateTimerUI();
+
+    // ================================================================
+    // SOCIAL UI CONTROLLER
+    // ================================================================
+
+    // ---- Helper: on sign-in ----
+    window.onSignIn = async function (profile) {
+        // Update nav
+        const loginBtn = document.getElementById('login-btn');
+        const avatarPill = document.getElementById('user-avatar-pill');
+        const avatarCircle = document.getElementById('user-avatar-circle');
+        const avatarUsername = document.getElementById('avatar-username');
+        const socialToggle = document.getElementById('social-toggle');
+
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (avatarPill) avatarPill.style.display = '';
+        if (socialToggle) socialToggle.style.display = '';
+
+        if (avatarCircle) {
+            avatarCircle.textContent = AlignAuth.getInitials(profile.display_name || profile.username);
+            avatarCircle.style.background = profile.avatar_color;
+        }
+        if (avatarUsername) {
+            const dName = escapeHTML(profile.display_name || profile.username);
+            const uName = escapeHTML(profile.username);
+            avatarUsername.innerHTML = `${dName}<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">@${uName}</div>`;
+        }
+
+        // Migrate local data to cloud (first login)
+        await AlignAuth.migrateLocalStorageToCloud();
+
+        // Load tasks from cloud
+        const cloudTasks = await AlignAuth.loadTasksFromCloud();
+        if (cloudTasks !== null) {
+            todos = cloudTasks;
+            localStorage.setItem('aesthetic_todos_v2', JSON.stringify(todos));
+            renderTodos();
+            calculateStreak();
+            updateFlowTimeWidget();
+            updatePriorityWidget();
+        }
+
+        // Subscribe to realtime for friend badge
+        AlignAuth.subscribeToFriendships(refreshPendingBadge);
+        refreshPendingBadge();
+    };
+
+    // ---- Helper: on sign-out ----
+    window.addEventListener('align:signout', () => {
+        const loginBtn = document.getElementById('login-btn');
+        const avatarPill = document.getElementById('user-avatar-pill');
+        const socialToggle = document.getElementById('social-toggle');
+        const socialPanel = document.getElementById('social-panel');
+
+        if (loginBtn) loginBtn.style.display = '';
+        if (avatarPill) avatarPill.style.display = 'none';
+        if (socialToggle) socialToggle.style.display = 'none';
+        if (socialPanel) socialPanel.classList.remove('open');
+
+        // Fall back to localStorage
+        todos = JSON.parse(localStorage.getItem('aesthetic_todos_v2')) || [];
+        renderTodos();
+    });
+
+    // ---- Avatar Menu Click Toggle ----
+    const avatarPillEl = document.getElementById('user-avatar-pill');
+    if (avatarPillEl) {
+        avatarPillEl.addEventListener('click', (e) => {
+            // Prevent toggling if clicking inside the menu text (avoids premature closing)
+            if (e.target.closest('.avatar-menu') && e.target.tagName !== 'BUTTON') {
+                return;
+            }
+            avatarPillEl.classList.toggle('active');
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!avatarPillEl.contains(e.target)) {
+                avatarPillEl.classList.remove('active');
+            }
+        });
+    }
+
+    // ---- Login Button ----
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', () => openAuthModal('login'));
+    }
+
+    // ---- Logout ----
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await AlignAuth.signOut();
+        });
+    }
+
+    // ---- Auth Modal ----
+    const authModal = document.getElementById('auth-modal');
+    const authModalClose = document.getElementById('auth-modal-close');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const loginErr = document.getElementById('login-error');
+    const signupErr = document.getElementById('signup-error');
+
+    function openAuthModal(tab = 'login') {
+        authModal.style.display = 'flex';
+        switchAuthTab(tab);
+    }
+    function closeAuthModal() {
+        authModal.style.display = 'none';
+    }
+    function switchAuthTab(name) {
+        authTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+        loginForm.style.display = name === 'login' ? '' : 'none';
+        signupForm.style.display = name === 'signup' ? '' : 'none';
+    }
+
+    authModalClose?.addEventListener('click', closeAuthModal);
+    authTabs.forEach(tab => tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab)));
+    authModal?.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
+
+    loginForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginErr.style.display = 'none';
+        const btn = document.getElementById('login-submit');
+        btn.classList.add('loading');
+        try {
+            await AlignAuth.signIn(
+                document.getElementById('login-email').value.trim(),
+                document.getElementById('login-password').value
+            );
+            const profile = await AlignAuth.loadCurrentProfile();
+            closeAuthModal();
+            onSignIn(profile);
+        } catch (err) {
+            loginErr.textContent = err.message;
+            loginErr.style.display = '';
+        } finally {
+            btn.classList.remove('loading');
+        }
+    });
+
+    signupForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        signupErr.style.display = 'none';
+        const btn = document.getElementById('signup-submit');
+        btn.classList.add('loading');
+        try {
+            const result = await AlignAuth.signUp(
+                document.getElementById('signup-email').value.trim(),
+                document.getElementById('signup-password').value,
+                document.getElementById('signup-username').value.trim()
+            );
+            // If we got an access_token, auto sign-in immediately
+            if (result?.access_token) {
+                const profile = await AlignAuth.loadCurrentProfile();
+                closeAuthModal();
+                if (profile) onSignIn(profile);
+            } else {
+                // Email confirmation required — try sign-in anyway (auto-confirm might be ON)
+                try {
+                    await AlignAuth.signIn(
+                        document.getElementById('signup-email').value.trim(),
+                        document.getElementById('signup-password').value
+                    );
+                    const profile = await AlignAuth.loadCurrentProfile();
+                    closeAuthModal();
+                    if (profile) onSignIn(profile);
+                } catch (signInErr) {
+                    // If sign-in fails, user needs to confirm email first
+                    signupErr.textContent = 'Account created! Please check your email to confirm, then sign in.';
+                    signupErr.style.display = '';
+                    signupErr.style.borderColor = 'rgba(46,213,115,0.5)';
+                    signupErr.style.background = 'rgba(46,213,115,0.12)';
+                    signupErr.style.color = '#2ed573';
+                }
+            }
+        } catch (err) {
+            let msg = err.message || '';
+            // If it looks like raw JSON, try to extract readable msg
+            if (msg.startsWith('{')) {
+                try { msg = JSON.parse(msg).msg || JSON.parse(msg).message || msg; } catch { }
+            }
+            signupErr.textContent = msg;
+            signupErr.style.display = '';
+        } finally {
+            btn.classList.remove('loading');
+        }
+    });
+
+    // ---- Settings Modal ----
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModalClose = document.getElementById('settings-modal-close');
+    const settingsForm = document.getElementById('settings-form');
+    const settingsErr = document.getElementById('settings-error');
+    const settingsSuccess = document.getElementById('settings-success');
+
+    function openSettingsModal() {
+        if (!AlignAuth.isLoggedIn()) return;
+        const profile = AlignAuth.getProfile();
+        document.getElementById('settings-display-name').value = profile.display_name || '';
+        document.getElementById('settings-username').value = profile.username || '';
+        document.getElementById('settings-color').value = profile.avatar_color || '#6c5ce7';
+        settingsErr.style.display = 'none';
+        settingsSuccess.style.display = 'none';
+        settingsModal.style.display = 'flex';
+        // Hide avatar menu after clicking settings
+        const avatarPillElRef = document.getElementById('user-avatar-pill');
+        if (avatarPillElRef) avatarPillElRef.classList.remove('active');
+    }
+
+    function closeSettingsModal() {
+        settingsModal.style.display = 'none';
+    }
+
+    settingsBtn?.addEventListener('click', openSettingsModal);
+    settingsModalClose?.addEventListener('click', closeSettingsModal);
+    settingsModal?.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsModal(); });
+
+    // Color presets logic
+    document.querySelectorAll('.color-preset').forEach(preset => {
+        preset.addEventListener('click', () => {
+            document.getElementById('settings-color').value = preset.style.backgroundColor || preset.style.background;
+        });
+    });
+
+    settingsForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        settingsErr.style.display = 'none';
+        settingsSuccess.style.display = 'none';
+        const btn = document.getElementById('settings-submit');
+        btn.classList.add('loading');
+        try {
+            const updates = {
+                display_name: document.getElementById('settings-display-name').value.trim(),
+                username: document.getElementById('settings-username').value.trim(),
+                avatar_color: document.getElementById('settings-color').value.trim()
+            };
+            const updatedProfile = await AlignAuth.updateProfile(updates);
+            settingsSuccess.textContent = 'Profile updated successfully!';
+            settingsSuccess.style.display = '';
+
+            // Refresh UI
+            onSignIn(updatedProfile);
+
+            setTimeout(() => {
+                closeSettingsModal();
+            }, 1000);
+        } catch (err) {
+            let msg = err.message || '';
+            if (msg.startsWith('{')) {
+                try { msg = JSON.parse(msg).msg || JSON.parse(msg).message || msg; } catch { }
+            }
+            settingsErr.textContent = msg;
+            settingsErr.style.display = '';
+        } finally {
+            btn.classList.remove('loading');
+        }
+    });
+
+    // ---- Social Panel ----
+    const socialPanel = document.getElementById('social-panel');
+    const socialToggle = document.getElementById('social-toggle');
+    const closeSocialBtn = document.getElementById('close-social');
+    let isSocialOpen = false;
+
+    function openSocial() {
+        socialPanel.classList.add('open');
+        isSocialOpen = true;
+        loadFriendsTab();
+    }
+    function closeSocial() {
+        socialPanel.classList.remove('open');
+        isSocialOpen = false;
+    }
+    socialToggle?.addEventListener('click', () => isSocialOpen ? closeSocial() : openSocial());
+    closeSocialBtn?.addEventListener('click', closeSocial);
+
+    // Social tabs
+    const socialTabBtns = document.querySelectorAll('.social-tab-btn');
+    const socialTabContents = { friends: 'social-tab-friends', requests: 'social-tab-requests', search: 'social-tab-search', leaderboard: 'social-tab-leaderboard' };
+    socialTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            socialTabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            Object.values(socialTabContents).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            const target = socialTabContents[btn.dataset.stab];
+            if (target) document.getElementById(target).style.display = '';
+            // Lazy load
+            if (btn.dataset.stab === 'friends') loadFriendsTab();
+            if (btn.dataset.stab === 'requests') loadRequestsTab();
+            if (btn.dataset.stab === 'leaderboard') loadLeaderboardTab();
+        });
+    });
+
+    // ---- Friend Search ----
+    const friendSearchInput = document.getElementById('friend-search-input');
+    const friendSearchBtn = document.getElementById('friend-search-btn');
+    const searchResultsEl = document.getElementById('search-results');
+
+    async function doSearch() {
+        const q = friendSearchInput?.value.trim();
+        if (!q || !AlignAuth.isLoggedIn()) return;
+        searchResultsEl.innerHTML = '<div class="social-empty">Searching…</div>';
+        const results = await AlignAuth.searchUserByUsername(q);
+        const sentIds = await AlignAuth.getSentPendingRequests();
+        const friends = await AlignAuth.getFriends();
+        const friendIds = friends.map(f => f.profile?.id);
+
+        if (!results.length) {
+            searchResultsEl.innerHTML = '<div class="social-empty">No users found.</div>';
+            return;
+        }
+        searchResultsEl.innerHTML = '';
+        results.forEach(u => {
+            const isFriend = friendIds.includes(u.id);
+            const isPending = sentIds.includes(u.id);
+            const card = document.createElement('div');
+            card.className = 'friend-card';
+            card.innerHTML = `
+                <div class="friend-avatar" style="background:${u.avatar_color}">${AlignAuth.getInitials(u.display_name || u.username)}</div>
+                <div class="friend-info">
+                    <div class="friend-display-name">${escapeHTML(u.display_name || u.username)}</div>
+                    <div class="friend-username-sub">@${escapeHTML(u.username)}</div>
+                </div>
+                <div class="friend-actions">
+                    ${isFriend
+                    ? `<button class="friend-action-btn btn-view" disabled>Friends ✓</button>`
+                    : isPending
+                        ? `<button class="friend-action-btn btn-pending" disabled>Pending…</button>`
+                        : `<button class="friend-action-btn btn-add" data-id="${u.id}">+ Add</button>`
+                }
+                </div>`;
+            const addBtn = card.querySelector('[data-id]');
+            if (addBtn) {
+                addBtn.addEventListener('click', async () => {
+                    addBtn.disabled = true;
+                    addBtn.textContent = 'Sending…';
+                    await AlignAuth.sendFriendRequest(u.id);
+                    addBtn.textContent = 'Sent ✓';
+                    addBtn.className = 'friend-action-btn btn-pending';
+                });
+            }
+            searchResultsEl.appendChild(card);
+        });
+    }
+    friendSearchBtn?.addEventListener('click', doSearch);
+    friendSearchInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+    // ---- Friends Tab ----
+    async function loadFriendsTab() {
+        if (!AlignAuth.isLoggedIn()) return;
+        const el = document.getElementById('friends-list');
+        el.innerHTML = '<div class="social-empty">Loading…</div>';
+        const friends = await AlignAuth.getFriends();
+        if (!friends.length) {
+            el.innerHTML = '<div class="social-empty">No friends yet. Use Search to add some!</div>';
+            return;
+        }
+        el.innerHTML = '';
+        friends.forEach(f => {
+            const p = f.profile;
+            if (!p) return;
+            const card = document.createElement('div');
+            card.className = 'friend-card';
+            card.innerHTML = `
+                <div class="friend-avatar" style="background:${p.avatar_color}">${AlignAuth.getInitials(p.display_name || p.username)}</div>
+                <div class="friend-info">
+                    <div class="friend-display-name">${escapeHTML(p.display_name || p.username)}</div>
+                    <div class="friend-username-sub">@${escapeHTML(p.username)}</div>
+                </div>
+                <div class="friend-actions">
+                    <button class="friend-action-btn btn-view" data-fid="${p.id}" data-fname="${escapeHTML(p.display_name || p.username)}" data-funame="${escapeHTML(p.username)}" data-fcolor="${p.avatar_color}">View</button>
+                </div>`;
+            const viewBtn = card.querySelector('.btn-view');
+            viewBtn?.addEventListener('click', () => openAccountability(p));
+            el.appendChild(card);
+        });
+    }
+
+    // ---- Requests Tab ----
+    async function loadRequestsTab() {
+        if (!AlignAuth.isLoggedIn()) return;
+        const el = document.getElementById('requests-list');
+        el.innerHTML = '<div class="social-empty">Loading…</div>';
+        const reqs = await AlignAuth.getPendingRequests();
+        if (!reqs.length) {
+            el.innerHTML = '<div class="social-empty">No pending requests.</div>';
+            return;
+        }
+        el.innerHTML = '';
+        reqs.forEach(r => {
+            const p = r.profile;
+            if (!p) return;
+            const card = document.createElement('div');
+            card.className = 'friend-card';
+            card.innerHTML = `
+                <div class="friend-avatar" style="background:${p.avatar_color}">${AlignAuth.getInitials(p.display_name || p.username)}</div>
+                <div class="friend-info">
+                    <div class="friend-display-name">${escapeHTML(p.display_name || p.username)}</div>
+                    <div class="friend-username-sub">@${escapeHTML(p.username)}</div>
+                </div>
+                <div class="friend-actions">
+                    <button class="friend-action-btn btn-accept" data-rid="${r.id}">Accept</button>
+                    <button class="friend-action-btn btn-decline" data-rid="${r.id}">Decline</button>
+                </div>`;
+            card.querySelector('.btn-accept').addEventListener('click', async (e) => {
+                await AlignAuth.acceptFriendRequest(r.id);
+                card.remove();
+                refreshPendingBadge();
+                if (!el.children.length) el.innerHTML = '<div class="social-empty">No pending requests.</div>';
+            });
+            card.querySelector('.btn-decline').addEventListener('click', async (e) => {
+                await AlignAuth.declineFriendRequest(r.id);
+                card.remove();
+                refreshPendingBadge();
+                if (!el.children.length) el.innerHTML = '<div class="social-empty">No pending requests.</div>';
+            });
+            el.appendChild(card);
+        });
+    }
+
+    // ---- Pending Badge ----
+    async function refreshPendingBadge() {
+        if (!AlignAuth.isLoggedIn()) return;
+        const reqs = await AlignAuth.getPendingRequests();
+        const badge = document.getElementById('friend-badge');
+        const reqCount = document.getElementById('requests-count');
+        const n = reqs.length;
+        if (badge) { badge.textContent = n; badge.style.display = n > 0 ? 'flex' : 'none'; }
+        if (reqCount) { reqCount.textContent = n; reqCount.style.display = n > 0 ? '' : 'none'; }
+    }
+
+    // ---- Leaderboard Tab ----
+    async function loadLeaderboardTab() {
+        if (!AlignAuth.isLoggedIn()) return;
+        const el = document.getElementById('leaderboard-list');
+        el.innerHTML = '<div class="social-empty">Loading…</div>';
+        await AlignAuth.syncDailyStats();
+        const rows = await AlignAuth.getLeaderboard();
+        if (!rows.length) {
+            el.innerHTML = '<div class="social-empty">Add friends to see the leaderboard!</div>';
+            return;
+        }
+        const medals = ['🥇', '🥈', '🥉'];
+        const medalClass = ['gold', 'silver', 'bronze'];
+        el.innerHTML = '';
+        rows.forEach((row, i) => {
+            const div = document.createElement('div');
+            div.className = 'leaderboard-row' + (row.isSelf ? ' self-row' : '');
+            div.innerHTML = `
+                <div class="lb-rank ${medalClass[i] || ''}">${medals[i] || (i + 1)}</div>
+                <div class="lb-avatar" style="background:${row.avatar_color}">${AlignAuth.getInitials(row.display_name)}</div>
+                <div class="lb-info">
+                    <div class="lb-name">${escapeHTML(row.display_name)}${row.isSelf ? ' (You)' : ''}</div>
+                    <div class="lb-score">${AlignAuth.formatFlowTime(row.flow)} flow</div>
+                </div>
+                <div class="lb-completions">${row.completions}</div>`;
+            el.appendChild(div);
+        });
+    }
+
+    // ---- Accountability Overlay ----
+    async function openAccountability(profile) {
+        const overlay = document.getElementById('accountability-overlay');
+        overlay.style.display = 'flex';
+        document.getElementById('acc-avatar').style.background = profile.avatar_color;
+        document.getElementById('acc-avatar').textContent = AlignAuth.getInitials(profile.display_name || profile.username);
+        document.getElementById('acc-name').textContent = profile.display_name || profile.username;
+        document.getElementById('acc-username').textContent = '@' + profile.username;
+        // Reset
+        ['acc-done', 'acc-total', 'acc-streak', 'acc-flow'].forEach(id => document.getElementById(id).textContent = '…');
+        document.getElementById('acc-bar').style.width = '0%';
+        document.getElementById('acc-pct').textContent = '0%';
+        // Load stats
+        const stats = await AlignAuth.getFriendStats(profile.id);
+        document.getElementById('acc-done').textContent = stats.todayCompletions;
+        document.getElementById('acc-total').textContent = stats.total;
+        document.getElementById('acc-streak').textContent = stats.streak + 'd';
+        document.getElementById('acc-flow').textContent = AlignAuth.formatFlowTime(stats.todayFlow);
+        const pct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+        document.getElementById('acc-bar').style.width = pct + '%';
+        document.getElementById('acc-pct').textContent = pct + '%';
+    }
+    document.getElementById('close-accountability')?.addEventListener('click', () => {
+        document.getElementById('accountability-overlay').style.display = 'none';
+    });
+    document.getElementById('accountability-overlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'accountability-overlay') e.target.style.display = 'none';
+    });
 });

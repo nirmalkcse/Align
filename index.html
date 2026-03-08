@@ -27,8 +27,236 @@
             </div>
             <button id="notes-toggle" class="focus-btn ambient-btn" title="Open Quick Notes">Brain Dump</button>
             <button id="focus-toggle" class="focus-btn">Deep Focus Mode</button>
+
+            <!-- Social Panel Toggle (shown when logged in) -->
+            <button id="social-toggle" class="focus-btn social-btn" title="Friends & Leaderboard" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                Friends
+                <span id="friend-badge" class="friend-badge" style="display:none;">0</span>
+            </button>
+
+            <!-- User Avatar (shown when logged in) -->
+            <div id="user-avatar-pill" class="user-avatar-pill" style="display:none;" title="Account">
+                <div id="user-avatar-circle" class="avatar-circle">?</div>
+                <div class="avatar-menu">
+                    <div id="avatar-username" class="avatar-menu-name">username</div>
+                    <div class="avatar-menu-divider"></div>
+                    <button id="settings-btn" class="avatar-menu-item">Settings</button>
+                    <button id="logout-btn" class="avatar-menu-item" style="color: #ff6b6b;">Sign Out</button>
+                </div>
+            </div>
+
+            <!-- Login Button (shown when logged out) -->
+            <button id="login-btn" class="focus-btn login-btn">Login</button>
         </div>
     </nav>
+
+    <!-- ============================================================ -->
+    <!-- AUTH MODAL                                                    -->
+    <!-- ============================================================ -->
+    <div id="auth-modal" class="auth-modal" style="display:none;">
+        <div class="auth-card">
+            <button id="auth-modal-close" class="auth-close-btn">&times;</button>
+            <div class="auth-logo">Align</div>
+
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Sign In</button>
+                <button class="auth-tab" data-tab="signup">Create Account</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form" data-panel="login">
+                <div class="auth-field">
+                    <label>Email</label>
+                    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" required>
+                </div>
+                <div class="auth-field">
+                    <label>Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+                        required>
+                </div>
+                <div id="login-error" class="auth-error" style="display:none;"></div>
+                <button type="submit" class="auth-submit-btn" id="login-submit">
+                    <span>Sign In</span>
+                </button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signup-form" class="auth-form" data-panel="signup" style="display:none;">
+                <div class="auth-field">
+                    <label>Email</label>
+                    <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email" required>
+                </div>
+                <div class="auth-field">
+                    <label>Password</label>
+                    <input type="password" id="signup-password" placeholder="Min. 6 characters"
+                        autocomplete="new-password" required>
+                </div>
+                <div class="auth-field">
+                    <label>Username <span class="auth-hint">(used by friends to find you)</span></label>
+                    <input type="text" id="signup-username" placeholder="e.g. alex_builds" autocomplete="off" required>
+                </div>
+                <div id="signup-error" class="auth-error" style="display:none;"></div>
+                <button type="submit" class="auth-submit-btn" id="signup-submit">
+                    <span>Create Account</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SETTINGS MODAL                                               -->
+    <!-- ============================================================ -->
+    <div id="settings-modal" class="auth-modal" style="display:none;">
+        <div class="auth-card">
+            <button id="settings-modal-close" class="auth-close-btn">&times;</button>
+            <div class="auth-logo">Profile</div>
+
+            <form id="settings-form" class="auth-form">
+                <div class="auth-field">
+                    <label>Display Name</label>
+                    <input type="text" id="settings-display-name" placeholder="How friends see you" autocomplete="off"
+                        required>
+                </div>
+                <div class="auth-field">
+                    <label>Username</label>
+                    <input type="text" id="settings-username" placeholder="e.g. alex_builds" autocomplete="off"
+                        required>
+                </div>
+                <div class="auth-field">
+                    <label>Favorite Color <span class="auth-hint">(Hex code for avatar)</span></label>
+                    <input type="text" id="settings-color" placeholder="#6c5ce7" autocomplete="off" required>
+                    <div style="display:flex; gap: 8px; margin-top: 8px;" id="color-presets">
+                        <div class="color-preset"
+                            style="background: #6c5ce7; width:24px; height:24px; border-radius:50%; cursor:pointer;">
+                        </div>
+                        <div class="color-preset"
+                            style="background: #00cec9; width:24px; height:24px; border-radius:50%; cursor:pointer;">
+                        </div>
+                        <div class="color-preset"
+                            style="background: #e17055; width:24px; height:24px; border-radius:50%; cursor:pointer;">
+                        </div>
+                        <div class="color-preset"
+                            style="background: #fdcb6e; width:24px; height:24px; border-radius:50%; cursor:pointer;">
+                        </div>
+                        <div class="color-preset"
+                            style="background: #55efc4; width:24px; height:24px; border-radius:50%; cursor:pointer;">
+                        </div>
+                        <div class="color-preset"
+                            style="background: #fd79a8; width:24px; height:24px; border-radius:50%; cursor:pointer;">
+                        </div>
+                    </div>
+                </div>
+                <div id="settings-error" class="auth-error" style="display:none;"></div>
+                <div id="settings-success" class="auth-error"
+                    style="display:none; background: rgba(46, 213, 115, 0.12); border-color: rgba(46, 213, 115, 0.3); color: #2ed573;">
+                </div>
+                <button type="submit" class="auth-submit-btn" id="settings-submit">
+                    <span>Save Changes</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SOCIAL PANEL (right slide-out)                               -->
+    <!-- ============================================================ -->
+    <div id="social-panel" class="side-panel social-side-panel">
+        <div class="panel-header">
+            <h3>Social</h3>
+            <button id="close-social" class="close-btn">&times;</button>
+        </div>
+
+        <!-- Social Tabs -->
+        <div class="social-tabs">
+            <button class="social-tab-btn active" data-stab="friends">Friends</button>
+            <button class="social-tab-btn" data-stab="requests">
+                Requests
+                <span id="requests-count" class="req-count" style="display:none;">0</span>
+            </button>
+            <button class="social-tab-btn" data-stab="search">Search</button>
+            <button class="social-tab-btn" data-stab="leaderboard">🏆 Rank</button>
+        </div>
+
+        <!-- Friends Tab -->
+        <div id="social-tab-friends" class="social-tab-content active">
+            <div id="friends-list" class="friends-list">
+                <div class="social-empty">No friends yet. Search to add some!</div>
+            </div>
+        </div>
+
+        <!-- Requests Tab -->
+        <div id="social-tab-requests" class="social-tab-content" style="display:none;">
+            <div id="requests-list" class="friends-list">
+                <div class="social-empty">No pending requests.</div>
+            </div>
+        </div>
+
+        <!-- Search Tab -->
+        <div id="social-tab-search" class="social-tab-content" style="display:none;">
+            <div class="search-bar-wrap">
+                <input type="text" id="friend-search-input" placeholder="Search by username…" autocomplete="off">
+                <button id="friend-search-btn" class="search-go-btn">Go</button>
+            </div>
+            <div id="search-results" class="friends-list"></div>
+        </div>
+
+        <!-- Leaderboard Tab -->
+        <div id="social-tab-leaderboard" class="social-tab-content" style="display:none;">
+            <p class="leaderboard-subtitle">Weekly completions among you & friends</p>
+            <div id="leaderboard-list" class="leaderboard-list">
+                <div class="social-empty">Add friends to see the leaderboard.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ACCOUNTABILITY OVERLAY (friend task view)                    -->
+    <!-- ============================================================ -->
+    <div id="accountability-overlay" class="accountability-overlay" style="display:none;">
+        <div class="accountability-card">
+            <button id="close-accountability" class="close-accountability-btn">&times;</button>
+            <div class="acc-header">
+                <div id="acc-avatar" class="acc-avatar"></div>
+                <div>
+                    <div id="acc-name" class="acc-name"></div>
+                    <div id="acc-username" class="acc-username-label"></div>
+                </div>
+            </div>
+            <div class="acc-stats-grid">
+                <div class="acc-stat">
+                    <span id="acc-done" class="acc-stat-value">–</span>
+                    <span class="acc-stat-label">Done Today</span>
+                </div>
+                <div class="acc-stat">
+                    <span id="acc-total" class="acc-stat-value">–</span>
+                    <span class="acc-stat-label">Total Tasks</span>
+                </div>
+                <div class="acc-stat">
+                    <span id="acc-streak" class="acc-stat-value">–</span>
+                    <span class="acc-stat-label">Day Streak</span>
+                </div>
+                <div class="acc-stat">
+                    <span id="acc-flow" class="acc-stat-value">–</span>
+                    <span class="acc-stat-label">Flow Today</span>
+                </div>
+            </div>
+            <div class="acc-completion-wrap">
+                <div class="acc-completion-label">Completion Rate</div>
+                <div class="acc-bar-bg">
+                    <div id="acc-bar" class="acc-bar" style="width:0%"></div>
+                </div>
+                <div id="acc-pct" class="acc-pct">0%</div>
+            </div>
+        </div>
+    </div>
 
     <!-- Slide-out Quick Notes Panel -->
     <div id="notes-panel" class="side-panel">
@@ -57,7 +285,8 @@
             <button id="reset-timer" class="timer-btn secondary">Reset</button>
         </div>
         <div class="focus-task-row">
-            <h3 id="current-focus-task" class="focus-task-label clickable-task" title="Click to pick a task">Select a
+            <h3 id="current-focus-task" class="focus-task-label clickable-task" title="Click to pick a task">Select
+                a
                 task to focus on...</h3>
             <button id="clear-focus-task" class="clear-task-btn" title="Clear focus task"
                 style="display:none;">Clear</button>
@@ -271,6 +500,7 @@
 
     <!-- SheetJS for True XLSX Export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="auth.js"></script>
     <script src="script.js"></script>
 </body>
 

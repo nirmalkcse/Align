@@ -241,6 +241,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let appHistory = JSON.parse(localStorage.getItem('aesthetic_history_v2')) || {};
     let currentFilter = 'All';
 
+    // ---- Pagination State ----
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
     // ---- Insight Engine ----
     function getTodayString() {
         return new Date().toISOString().split('T')[0];
@@ -315,6 +319,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filterBtns = document.querySelectorAll('.filter-btn');
     const completionBar = document.getElementById('completion-bar');
 
+    // Pagination Elements
+    const paginationControls = document.getElementById('pagination-controls');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const pageIndicator = document.getElementById('page-indicator');
+
     // Drag and Drop ordering
     new Sortable(todoList, {
         animation: 350,
@@ -364,11 +374,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             return t.category === currentFilter;
         });
 
+        const totalPages = Math.ceil(filteredTodos.length / itemsPerPage) || 1;
+
+        // Ensure currentPage is within bounds after filtering/deleting
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+
         if (filteredTodos.length === 0) {
             emptyState.style.display = 'block';
+            if (paginationControls) paginationControls.style.display = 'none';
         } else {
             emptyState.style.display = 'none';
-            filteredTodos.forEach((todo, index) => {
+
+            // Pagination Logic
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedTodos = filteredTodos.slice(startIndex, endIndex);
+
+            // Update Pagination UI
+            if (paginationControls && pageIndicator && prevPageBtn && nextPageBtn) {
+                if (totalPages > 1) {
+                    paginationControls.style.display = 'flex';
+                    pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+                    prevPageBtn.disabled = currentPage === 1;
+                    nextPageBtn.disabled = currentPage === totalPages;
+                } else {
+                    paginationControls.style.display = 'none';
+                }
+            }
+
+            paginatedTodos.forEach((todo, index) => {
                 const li = document.createElement('li');
                 li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
                 li.style.animationDelay = `${index * 0.08}s`;
@@ -448,6 +484,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 filterBtns.forEach(b => b.classList.remove('active'));
                 document.querySelector('.filter-btn[data-filter="All"]').classList.add('active');
             }
+
+            currentPage = 1; // Reset to first page on new task
 
             saveTodos(newTodo);
             renderTodos();
@@ -567,9 +605,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             filterBtns.forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
             currentFilter = e.target.dataset.filter;
+            currentPage = 1; // Reset pagination on filter change
             renderTodos();
         });
     });
+
+    // Pagination Events
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                playSound('tick');
+                currentPage--;
+
+                // Add exit animation class to current items before rendering new ones
+                const items = document.querySelectorAll('.todo-item');
+                items.forEach(item => {
+                    item.style.animation = 'none';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateY(-10px)';
+                });
+
+                setTimeout(() => {
+                    renderTodos();
+                    // Scroll back to top of list if we scrolled down
+                    const trackerElement = document.getElementById('tracker');
+                    if (trackerElement) {
+                        const y = trackerElement.getBoundingClientRect().top + window.scrollY - 100;
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                    }
+                }, 150);
+            }
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            const filteredTodos = todos.filter(t => currentFilter === 'All' || t.category === currentFilter);
+            const totalPages = Math.ceil(filteredTodos.length / itemsPerPage) || 1;
+
+            if (currentPage < totalPages) {
+                playSound('tick');
+                currentPage++;
+
+                // Add exit animation class to current items
+                const items = document.querySelectorAll('.todo-item');
+                items.forEach(item => {
+                    item.style.animation = 'none';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateY(10px)';
+                });
+
+                setTimeout(() => {
+                    renderTodos();
+                    // Scroll back to top of list
+                    const trackerElement = document.getElementById('tracker');
+                    if (trackerElement) {
+                        const y = trackerElement.getBoundingClientRect().top + window.scrollY - 100;
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                    }
+                }, 150);
+            }
+        });
+    }
 
     clearCompletedBtn.addEventListener('click', () => {
         const completedOnly = todos.filter(t => t.completed);

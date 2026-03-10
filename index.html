@@ -492,6 +492,25 @@
             <ul id="todo-list">
                 <!-- Tasks will be injected here via JS -->
             </ul>
+
+            <!-- Pagination Controls -->
+            <div class="pagination-controls" id="pagination-controls" style="display: none;">
+                <button class="page-btn" id="prev-page" aria-label="Previous page">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    Prev
+                </button>
+                <span class="page-indicator" id="page-indicator">Page 1 of 1</span>
+                <button class="page-btn" id="next-page" aria-label="Next page">
+                    Next
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+            </div>
         </div>
     </section>
 
